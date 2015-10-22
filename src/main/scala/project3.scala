@@ -1,6 +1,8 @@
-import akka.actor.{ActorRef, Actor, ActorSystem, Props}
 
-import scala.collection.mutable
+import akka.actor.{Actor, Props, ActorSystem}
+
+import scala.collection.immutable
+import scala.math._
 
 /**
  * Created by PRITI on 10/17/15.
@@ -12,62 +14,79 @@ object project3 {
     var numNodes: Int = args(0).toInt;
     var numRequests: Int = args(1).toInt;
     val system = ActorSystem("Chord")
+    val m = 2 * log2(numNodes)
+    println(m)
+    var networkIPList: Set[String] = Set();
+    var id: String = ""
+    var temp_id: String = ""
 
-    var master = system.actorOf(Props(new Master(numNodes, numRequests)));
-    master ! START
+    temp_id = getHash(getnetworkIp(networkIPList))
+    id = BigInt(temp_id.substring(0, m), 2).toString(10)
+    //      println(id)
+    var node = system.actorOf(Props(new Node(id, id)), name = "Node"+id)
+    var forNextNode = id
 
-  }
-
-  class Master(numNodes: Int, numRequests: Int) extends Actor {
-
-    def receive = {
-
-      case START() =>
-        var node = context.actorOf(Props(new Node(numNodes, 0)), name = "Node"
-          + 0)
-        node ! Create
-
+    for (i <- 2 to numNodes) {
+      temp_id = getHash(getnetworkIp(networkIPList))
+      id = BigInt(temp_id.substring(0, m), 2).toString(10)
+//      println(id)
+      var node = system.actorOf(Props(new Node(id, forNextNode)), name = "Node"+id)
+      forNextNode = id
     }
 
   }
 
-  class Node(numNodes: Int, id: Int) extends Actor {
+  def log2(x: Int): Int = {
 
-    var NodeIdentifier: Int = 0
-    NodeIdentifier = id
-    var predessor: ActorRef = null
-    var successor: ActorRef = sender
-    var fingerTable = new mutable.HashMap[Int, Int] //start and successor
-    //    var key = new mutable.HashSet[Int] {}
+    val lnOf2: Double = scala.math.log(2) // natural log of 2
+    val newValue = scala.math.log(x) / lnOf2
 
-    def receive = {
+    return ceil(newValue).toInt
+  }
 
-      case Create =>
-//        successor = sender
-        for (i: Int <- 1 until numNodes) {
-          var newNode = context.actorOf(Props(new Node(numNodes, i)))
-           newNode ! Join
-          successor = newNode
-        }
+  def getHash(string: String): String = {
 
-      case Join =>
-        predessor = sender
-        successor = find_successor(NodeIdentifier)
-    }
+    val md = java.security.MessageDigest.getInstance("SHA-1")
+    var hexValue = md.digest(string.getBytes("UTF-8")).map("%02x".format(_))
+      .mkString
 
-    def find_successor(nID: Int): ActorRef = {
+    BigInt(hexValue, 16).toString(2)
+  }
 
-      return
-      //      return finger[1].node;
+  def getnetworkIp(networkIPList: immutable.Set[String]): String = {
+
+    val ip = scala.util.Random.nextInt(256) + "." + scala.util.Random.nextInt(256) + "." + scala.util.Random.nextInt(256) + "." + scala.util.Random.nextInt(256)
+    if (!networkIPList.contains(ip))
+      ip
+    else {
+      println("stuck in while")
+      getnetworkIp(networkIPList)
     }
 
   }
 
-  case class Create()
+  class Node (id:String, responsibleNode:String) extends Actor {
 
-  case class Join()
 
-  case class START()
+    var alive:Boolean = false
+    var NodeIdentifier = id
+
+    def receive: Receive = {
+
+      case join => {
+
+      }
+
+      case find_successor =>{}
+
+
+
+    }
+      def join(): Unit =
+      {
+
+      }
+  }
 
 }
 
