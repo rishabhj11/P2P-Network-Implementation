@@ -18,9 +18,10 @@ object project3 {
     var numNodes: Int = args(0).toInt;
     var numRequests: Int = args(1).toInt;
     val system = ActorSystem("Chord")
-    //    m = 2 * log2(numNodes)
+        m = 2 * log2(numNodes)
     //    println(m)
-    m = log2(numNodes)
+//    m = log2(numNodes)
+//    m=3
     var networkIPList: Set[String] = Set();
     var IDList: Set[String] = Set();
     var id: String = ""
@@ -30,7 +31,7 @@ object project3 {
     temp_id = getHash(getnetworkIp(networkIPList))
     id = BigInt(temp_id.substring(0, m), 2).toString(10)
     IDList += id
-    var firstNode = system.actorOf(Props(new Node()), name = id)
+    var firstNode = system.actorOf(Props(new Node()), name = "0")
 
     ActorMap += firstNode
 
@@ -47,7 +48,15 @@ object project3 {
       node ! Join(firstNode)
     }
 
-    Thread.sleep(1000)
+//    var node1 = system.actorOf(Props(new Node()), name = "1")
+//    ActorMap+=node1
+//    var node2 = system.actorOf(Props(new Node()), name = "3")
+//    ActorMap+=node2
+
+//    node1 ! Join(firstNode)
+//    Thread.sleep(100)
+//    node2 ! Join(firstNode)
+//    Thread.sleep(1000)
 
     for (ar <- ActorMap) {
       Thread.sleep(100)
@@ -102,22 +111,30 @@ object project3 {
 
       case Join(exist: ActorRef) => {
         println("join started for: " + self.path.name.toInt)
-        println("m: "+m)
+        println("m: " + m)
         this.exist = exist
         //println("I am %S, I am asking %s to find my position".format(getHash,exist.toString().charAt(25)))
-//        exist ! Find_Predecessor(self, self.path.name.toInt)
+        exist ! Find_Predecessor(self, self.path.name.toInt)
       }
 
       //
       case Find_Predecessor(node: ActorRef, id: Int) => {
         println("Find_Predecessor started")
-        val interval = new Interval(false, id, fingerTable(0).getHash(), true)
+        val interval = new Interval(false, self.path.name.toInt, fingerTable(0)
+          .getHash(),
+          true)
+
         //if the id is contained in the interval
         if (interval.includes(id))
+          {
+            println("calling: "+self.path.name+" id: "+id)
           node ! Found_Position(self, this.successor)
         //else find the closest preceeding finger and recurse
+             }
         else {
+
           val target = closest_preceding_finger(id)
+          println("target: " + target.path.name)
           target ! Find_Predecessor(node, id)
         }
       }
@@ -255,8 +272,7 @@ object project3 {
 
   case class Found_Finger(i: Int, successor: ActorRef)
 
-  case class Update_Finger(
-                            before: BigInt, i: Int, node: ActorRef, nodeHash:
+  case class Update_Finger(before: BigInt, i: Int, node: ActorRef, nodeHash:
   BigInt)
 
   case class Print()
