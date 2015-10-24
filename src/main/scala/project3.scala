@@ -15,7 +15,6 @@ import scala.util.Random
  */
 object project3 {
 
-  //  val calculationMap: concurrent.Map[Int, Int] = new ConcurrentHashMap()[Int, Int].asScala
   val hopMap: concurrent.Map[String, Array[Int]] = new
       ConcurrentHashMap[String,
         Array[Int]]().asScala;
@@ -30,10 +29,10 @@ object project3 {
     var numNodes: Int = args(0).toInt;
     var numRequests: Int = args(1).toInt;
     val system = ActorSystem("Chord")
-//    m = 2 * log2(numNodes)
+    m = 2 * log2(numNodes)
     //    println(m)
-//        m = log2(numNodes)
-        m=3
+    //        m = log2(numNodes)
+    //    m = 3
     var networkIPList: Set[String] = new scala
     .collection.mutable.HashSet[String];
     var IDList: Set[String] = Set();
@@ -78,19 +77,23 @@ object project3 {
       ar ! Print
     }
 
-//    firstNode ! Find(firstNode, "11", 0)
+    //    firstNode ! Find(firstNode, "11", 0)
     for (ar <- ActorMap) {
       ar ! Find(ar, "11", 0)
     }
 
     Thread.sleep(1000)
-    val avgHops = hopMap.get("5")
+    val avgHops = hopMap.get("11")
 
     avgHops match {
-      case Some (x) =>
-        println("no of nodes that searched: "+x(0))
-        println("no of total hops: "+x(1))
-        println("average hops: "+(x(1).toDouble/x(0).toDouble))
+      case Some(x) =>
+        println("no of nodes that searched: " + x(0))
+        println("no of total hops: " + x(1))
+        println("average hops: " + (x(1).toDouble / x(0).toDouble))
+
+
+      case None =>
+        println("found none")
     }
 
   }
@@ -142,7 +145,7 @@ object project3 {
 
       case Join(exist: ActorRef) => {
         println("join started for: " + self.path.name.toInt)
-//        println("m: " + m)
+        //        println("m: " + m)
         this.exist = exist
         //println("I am %S, I am asking %s to find my position".format(getHash,exist.toString().charAt(25)))
         exist ! Find_Predecessor(self, self.path.name.toInt)
@@ -264,7 +267,7 @@ object project3 {
         var id = BigInt(keyHash.substring(0, m), 2).toString(10)
 
         println(("I am node %s, searching for %s with hash: %s and found " +
-          "it on node %s with successor: %s, predecessor: %s, using %s steps").format(self.path.name,code, id.toInt, successor.path.toString, sucHash, preHash, step))
+          "it on node %s with successor: %s, predecessor: %s, using %s steps").format(self.path.name, code, id.toInt, successor.path.toString, sucHash, preHash, step))
         val interval = new Interval(false, preHash, sucHash, true)
 
         if (interval.includes(id.toInt))
