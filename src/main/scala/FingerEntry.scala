@@ -3,36 +3,19 @@ import akka.actor.ActorRef
 /**
  * Created by PRITI on 10/23/15.
  */
-class FingerEntry(start: BigInt, interval: Interval, var node: ActorRef) {
+class FingerEntry(start: BigInt, end: BigInt, var node: ActorRef) {
 
-  def getStart(): BigInt = {
+  def getStart(): BigInt = this.start
 
-    return this.start
-  }
+//  def getInterval(): Interval = this.interval
 
-  def getRange(): Interval = {
+  def getNode(): ActorRef = this.node
 
-    return this.interval
-  }
+  def getHash(): BigInt = node.path.name.toInt
 
-  def getNode(): ActorRef = {
+  def setNode(newNode: ActorRef): Unit = this.node = newNode
 
-    return this.node
-  }
+  def print: String = "Start: %s, End: %s, Node: %s".format(start, end,
+    getHash())
 
-  def getHash(): BigInt = {
-
-    //return BigInt.apply(node.toString().sha1.hex,16)
-    //    (node.toString.charAt(25)-48).toInt
-    return node.path.name.toInt
-  }
-
-  def setNode(newNode: ActorRef): Unit = {
-
-    this.node = newNode
-  }
-
-  def print:String={
-    return ("Start: %s, End: %s, Node: %s".format(start,interval.getEnd,getHash()))
-  }
 }
