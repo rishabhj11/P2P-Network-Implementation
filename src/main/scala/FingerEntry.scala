@@ -9,7 +9,7 @@ class FingerEntry(start: Int, end: Int, var nodeActor: ActorRef) {
 
   def getNode(): ActorRef = this.nodeActor
 
-  def getHash(): Int = nodeActor.path.name.toInt
+  def getNodeID(): Int = nodeActor.path.name.toInt
 
   def setNode(n: ActorRef): Unit = this.nodeActor = n
 
