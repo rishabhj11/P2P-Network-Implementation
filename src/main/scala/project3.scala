@@ -1,6 +1,10 @@
-import java.util.concurrent.ConcurrentHashMap
-
+import java.util.concurrent._
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import akka.util.Timeout
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.pattern.ask
 
 import scala.collection._
 import scala.collection.convert.decorateAsScala._
@@ -125,6 +129,9 @@ object project3 {
     var predecessor = self
     var nDash: ActorRef = null
     var fingerTable = new Array[FingerEntry](m)
+    var next:Int=0
+    var r:Int=m // Ideal value for r(length of successor list) would be 2*log(NumofNodes)
+    var successorList= ArrayBuffer[Int]()
 
     // Initialize the Finger Tables with self as soon as created
     for (i <- 0 until m) {
@@ -134,6 +141,24 @@ object project3 {
         scala.math.pow(2, m).toInt
       fingerTable(i) = new FingerEntry(start, end, self)
     }
+
+    // Periodically runs and checks if the immediate successor is alive, if not update the next successor
+    // from the successor list
+    val ex1 = new ScheduledThreadPoolExecutor(1)
+    val task1 = new Runnable {
+      def run() = updateSuccessorIfFailed()
+    }
+    val f1 = ex1.scheduleAtFixedRate(task1, 1, 1, TimeUnit.SECONDS)
+    f1.cancel(false)
+
+    // Periodically runs and update finger entries, this is spercifically useful in case a node has failed.
+    val ex2 = new ScheduledThreadPoolExecutor(1)
+    val task2 = new Runnable {
+      def run() = fix_fingers()
+    }
+    val f2 = ex2.scheduleAtFixedRate(task2, 2, 2, TimeUnit.SECONDS)
+    f2.cancel(false)
+
 
     def closest_preceding_finger(id: Int): ActorRef = {
 
@@ -213,6 +238,37 @@ object project3 {
           }
         }
 
+      //Determines successor for Update_SuccessorList function
+      case successorElement(node: ActorRef, id: Int) => {
+        if (isIncluded("n", self.path.name.toInt, fingerTable(0).getNodeID(),"y",id)){
+          node ! successorElement_continues(self, self.path.name.toInt)
+        } else {
+          val target = closest_preceding_finger(id)
+          target ! successorElement(node, id)
+        }
+      }
+
+      case successorElement_continues(successor: ActorRef,id: Int) => {
+        successorList+=id
+        //
+      }
+
+      // Determines the successors for the fix_finger function
+      case successor_fixFinger(node: ActorRef, id: Int) => {// calculates successor for fix_fingers function
+        if (isIncluded("n", self.path.name.toInt, fingerTable(0).getNodeID(),"y",id)){
+          node ! fix_fingers_continues(self, self.path.name.toInt)
+        } else {
+          val target = closest_preceding_finger(id)
+          target ! successor_fixFinger(node, id)
+        }
+      }
+
+      case fix_fingers_continues(successor: ActorRef,id: Int) => {
+        fingerTable(next).setNode(successor)
+        next=next+1
+        fix_fingers()
+      }
+
       case SearchKey(nodeActor: ActorRef, code: String, hops: Int) =>
 
         if (isIncluded("n", self.path.name.toInt, fingerTable(0)
@@ -236,6 +292,10 @@ object project3 {
           val nextFinger = closest_preceding_finger(code.toInt)
           nextFinger ! SearchKey(nodeActor, code, hops + 1)
         }
+
+
+      case iamalive() => {sender ! "yes"}
+
     }
 
     def init_finger_table(): Unit = {
@@ -282,6 +342,67 @@ object project3 {
       }
     }
 
+    //Creates and updates a successor list for each node, number of successors is chosen by the formula r= 2*log(numOfNodes)
+    def Update_SuccessorList() : Unit ={
+      successorList+=((fingerTable(0).getNodeID).toInt)
+      var lastSuccessor:Int = successorList(0);
+
+      for (j<-1 until r) {
+        var id:Int = lastSuccessor;
+        var path="akka://Chord/user/"+id.toString
+        var awaitTimeout=Duration(100, "millis")
+        var t:ActorRef=Await.result(context.actorSelection(path).resolveOne()(100), awaitTimeout)
+        nDash ! successorElement(t,id);
+      }
+    }
+
+    // Periodically runs and checks if the immediate successor is alive, if not update the next successor
+    // from the successor list
+    def updateSuccessorIfFailed() : Unit = {
+      var i:Int=0
+      while(!this.isAlive(this.successor) && i<r){
+        successorList.remove(i)
+        var t=successorList(i+1)
+        var path = "akka://Chord/user/"+t.toString
+        var awaitTimeout=Duration(100, "millis")
+        val actorRef = Await.result(context.actorSelection(path).resolveOne()(100), awaitTimeout)
+        this.successor= actorRef
+      }
+      this.successor ! Set_Predecessor(self)
+    }
+
+    //Runs periodically to update fingers in case network change, for example, node failure
+    def fix_fingers():Unit={
+      println("Fix fingers called at "+self.path.name.toInt)
+      if (next>scala.math.pow(2, m).toInt){
+        next=1
+      }
+      var x:Int=self.path.name.toInt+scala.math.pow(2, next-1).toInt
+      var path="akka://Chord/user/"+x.toString
+      var awaitTimeout=Duration(100, "millis")
+      var t:ActorRef=Await.result(context.actorSelection(path).resolveOne()(100), awaitTimeout)
+      nDash ! successor_fixFinger(t,x) // checks successor for finger
+    }
+
+    // Function to check if a node is alive
+    def isAlive(tocheck:ActorRef):Boolean={
+      var alive = true
+      try{
+        println("Checking "+tocheck.path.name.toInt)
+        val f = tocheck ? iamalive()
+        val re =  Await.result(f,Duration.create(5, "seconds"))
+      }
+      catch{
+        case e:Exception => {
+          if(tocheck != null){
+            println( "Node "+tocheck.path.name.toInt+" failed", e)
+            alive = false
+          }
+        }
+      }
+      alive
+    }
+
   }
 
   class FingerEntry(start: Int, end: Int, var nodeActor: ActorRef) {
@@ -316,6 +437,17 @@ object project3 {
   Int, i: Int)
 
   case class SearchKey(nodeActor: ActorRef, code: String, hops: Int)
+
+
+  case class successorElement(node: ActorRef, id: Int)
+
+  case class successorElement_continues(successor: ActorRef,id: Int)
+
+  case class successor_fixFinger(node: ActorRef, id: Int)
+
+  case class fix_fingers_continues(successor: ActorRef,id: Int)
+
+  case class iamalive()
 
 }
 
