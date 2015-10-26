@@ -56,10 +56,10 @@ object project3 {
       nodeActor ! Join(firstNode)
     }
 
-    for (ar <- ActorMap) {
-      Thread.sleep(100)
-      ar ! Print
-    }
+//    for (ar <- ActorMap) {
+//      Thread.sleep(100)
+//      ar ! Print
+//    }
 
     Thread.sleep(1000)
     val numPositions: Int = scala.math.pow(2, m).toInt
@@ -128,6 +128,7 @@ object project3 {
     var nDash: ActorRef = null
     var fingerTable = new Array[FingerEntry](m)
 
+    // Initialize the Finger Tables with self as soon as created
     for (i <- 0 until m) {
       val start = (self.path.name.toInt + scala.math.pow(2, i).toInt) % scala
         .math.pow(2, m).toInt
@@ -138,10 +139,6 @@ object project3 {
 
     def receive: Receive = {
 
-      case Join(nDash: ActorRef) =>
-        this.nDash = nDash
-        nDash ! Find_Predecessor(self, self.path.name.toInt)
-
       case Find_Successor(nodeActor: ActorRef, id: Int) =>
         self ! Find_Predecessor(nodeActor, id)
 
@@ -149,10 +146,9 @@ object project3 {
         //if the id is contained in the interval
         if (isIncluded("n", self.path.name.toInt, fingerTable(0).getHash(),
           "y", id)) {
-
-          //          nodeActor ! Set_Predecessor(self)
-          //          nodeActor ! Set_Successor(this.successor)
-          nodeActor ! Join_Continue(self, this.successor)
+          nodeActor ! Set_Predecessor(self) // set n's predecessor
+          nodeActor ! Set_Successor(this.successor) // set n's successor
+          nodeActor ! Join_Continue(self, this.successor) // continue join
         }
         //else find the closest preceding finger and recurse
         else {
@@ -160,12 +156,20 @@ object project3 {
           nextFinger ! Find_Predecessor(nodeActor, id)
         }
 
+      case Join(nDash: ActorRef) =>
+//        var t=context.actorSelection("akka://Chord/user/0")
+//        println(t)
+        this.nDash = nDash
+        nDash ! Find_Predecessor(self, self.path.name.toInt)
+
       case Join_Continue(predecessor: ActorRef, successor: ActorRef) =>
-        this.predecessor = predecessor
-        this.successor = successor
-        predecessor ! Set_Successor(self)
-        successor ! Set_Predecessor(self)
+        //        this.predecessor = predecessor
+        //        this.successor = successor
+        predecessor ! Set_Successor(self) // let n' set its successor
+        successor ! Set_Predecessor(self) // let n' set its predecessor
+        // join has been done, update the initial finger tables
         init_finger_table()
+        // update other nodes about it
         update_others()
 
       case Set_Predecessor(nodeActor: ActorRef) =>
@@ -174,34 +178,37 @@ object project3 {
       case Set_Successor(nodeActor: ActorRef) =>
         this.successor = nodeActor
 
-      case Find_Finger(nodeActor: ActorRef, i: Int, start: Int) =>
+      case Find_Successor1(nodeActor: ActorRef, i: Int, start: Int) =>
         if (isIncluded("n", self.path.name.toInt, fingerTable(0).getHash(),
           "y", start)) {
-          nodeActor ! Found_Finger(i, successor)
+          // if it belongs to the interval then set it as the node
+          nodeActor ! Set_FNode(i, successor)
         } else {
+          // else find the closest to the target
           val nextFinger = closest_preceding_finger(start)
-          nextFinger ! Find_Finger(nodeActor, i, start)
+          nextFinger ! Find_Successor1(nodeActor, i, start)
         }
 
-      case Found_Finger(i: Int, successor: ActorRef) =>
+      case Set_FNode(i: Int, successor: ActorRef) =>
         this.fingerTable(i).setNode(successor)
 
-      case update_finger_table(before: Int, i: Int, nodeActor: ActorRef, nodeID: Int) =>
+      case update_finger_table(pvalue: Int, i: Int, nodeActor: ActorRef, nodeID: Int) =>
         if (nodeActor != self) {
           if (isIncluded("n", self.path.name.toInt, fingerTable(0).getHash()
-            , "y", before)) {
+            , "y", pvalue)) {
             if (isIncluded("n", self.path.name.toInt, fingerTable(i).getHash
             (), "y", nodeID)) {
               fingerTable(i).setNode(nodeActor)
               predecessor ! update_finger_table(self.path.name.toInt, i, nodeActor, nodeID)
             }
           } else {
-            val nextFinger = closest_preceding_finger(before)
-            nextFinger ! update_finger_table(before, i, nodeActor, nodeID)
+            val nextFinger = closest_preceding_finger(pvalue)
+            nextFinger ! update_finger_table(pvalue, i, nodeActor, nodeID)
           }
         }
 
       case SearchKey(nodeActor: ActorRef, code: String, hops: Int) =>
+
         if (isIncluded("n", self.path.name.toInt, fingerTable(0)
           .getHash(), "y", code.toInt)) {
           var arrayMap: Array[Int] = null
@@ -220,8 +227,8 @@ object project3 {
               hopMap.put(code, x)
           }
 
-          println("I am nodeActor: " + nodeActor.path.name + "; Found key: " + code + " at" +
-            " " + "nodeActor " + successor.path.name + " in" + " " + "" + hops + " hops")
+//          println("I am nodeActor: " + nodeActor.path.name + "; Found key: " + code + " at" +
+//            " " + "nodeActor " + successor.path.name + " in" + " " + "" + hops + " hops")
         } else {
           val nextFinger = closest_preceding_finger(code.toInt)
           nextFinger ! SearchKey(nodeActor, code, hops + 1)
@@ -244,10 +251,10 @@ object project3 {
     def isIncluded(l_close: String, intStart: Int, intEnd: Int, r_close: String, value: Int): Boolean = {
 
       if (intStart > intEnd)
-        if (value == intStart && (l_close.equals("y")) || value == intEnd && (r_close.equals("y")) || (value > intStart || value < intEnd))
+        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart || value < intEnd))
           return true
       if (intStart < intEnd)
-        if (value == intStart && (l_close.equals("y")) || value == intEnd && (r_close.equals("y")) || (value > intStart && value < intEnd))
+        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart && value < intEnd))
           return true
       if (intStart == intEnd) {
         if (l_close.equals("n") && r_close.equals("n") && value == intStart)
@@ -272,15 +279,19 @@ object project3 {
 
     def init_finger_table(): Unit = {
 
+      // set finger[1].node = successor
       fingerTable(0).setNode(successor)
-      for (i <- 0 until m - 1) {
+      for (i <- 0 until m -1) {
+        // if (finger[i+1].start belongs to [n, finger[i].node))
         if (isIncluded("y", self.path.name.toInt, fingerTable(i).getHash(),
-          "y", fingerTable(i + 1).getStart())) {
+          "n", fingerTable(i + 1).getStart())) {
+          // then set its node
           fingerTable(i + 1).setNode(fingerTable(i).getNode())
         }
         else {
           if (nDash != null) {
-            nDash ! Find_Finger(self, i + 1, fingerTable(i + 1).getStart())
+            // find the successor of the start and then call Set_FNode
+            nDash ! Find_Successor1(self, i + 1, fingerTable(i + 1).getStart())
           }
         }
       }
@@ -307,17 +318,15 @@ object project3 {
 
   case class Find_Predecessor(nodeActor: ActorRef, id: Int)
 
-  case class Find_Finger(nodeActor: ActorRef, i: Int, start: Int)
+  case class Find_Successor(nodeActor: ActorRef, id: Int)
 
-  case class Found_Finger(i: Int, successor: ActorRef)
+  case class Find_Successor1(nodeActor: ActorRef, i: Int, start: Int)
 
-  case class update_finger_table(
-                                  before: Int, i: Int, nodeActor: ActorRef,
-                                  nodeID: Int)
+  case class Set_FNode(i: Int, successor: ActorRef)
+
+  case class update_finger_table(pvalue: Int, i: Int, nodeActor: ActorRef, nodeID: Int)
 
   case class SearchKey(nodeActor: ActorRef, code: String, hops: Int)
-
-  case class Find_Successor(nodeActor: ActorRef, id: Int)
 
   case class Print()
 
