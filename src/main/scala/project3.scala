@@ -252,7 +252,7 @@ object project3 {
           nextFinger ! SearchKey(nodeActor, code, hops + 1)
         }
     }
-    
+
     def init_finger_table(): Unit = {
 
       // set finger[1].node = successor
@@ -281,6 +281,18 @@ object project3 {
         successor ! Update_Finger_Table(self, self.path.name.toInt, p, i)
       }
     }
+
+  }
+
+  class FingerEntry(start: Int, end: Int, var nodeActor: ActorRef) {
+
+    def getStart(): Int = this.start
+
+    def getNode(): ActorRef = this.nodeActor
+
+    def getNodeID(): Int = nodeActor.path.name.toInt
+
+    def setNode(n: ActorRef): Unit = this.nodeActor = n
 
   }
 
