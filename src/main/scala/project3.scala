@@ -135,6 +135,31 @@ object project3 {
       fingerTable(i) = new FingerEntry(start, end, self)
     }
 
+    def isIncluded(l_close: String, intStart: Int, intEnd: Int, r_close: String, value: Int): Boolean = {
+
+      if (intStart > intEnd)
+        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart || value < intEnd))
+          return true
+      if (intStart < intEnd)
+        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart && value < intEnd))
+          return true
+      if (intStart == intEnd) {
+        if (!(l_close.equals("n") && r_close.equals("n") && value == intStart))
+          return true
+      }
+      false
+    }
+
+    def closest_preceding_finger(id: Int): ActorRef = {
+
+      for (i <- m - 1 to 0 by -1)
+        if (isIncluded("n", self.path.name.toInt, id, "n",
+          fingerTable(i).getNodeID()))
+          return fingerTable(i).nodeActor
+      //else just return self
+      self
+    }
+
     def receive: Receive = {
 
       case Find_Successor(nodeActor: ActorRef, id: Int) =>
@@ -227,32 +252,7 @@ object project3 {
           nextFinger ! SearchKey(nodeActor, code, hops + 1)
         }
     }
-
-    def isIncluded(l_close: String, intStart: Int, intEnd: Int, r_close: String, value: Int): Boolean = {
-
-      if (intStart > intEnd)
-        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart || value < intEnd))
-          return true
-      if (intStart < intEnd)
-        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart && value < intEnd))
-          return true
-      if (intStart == intEnd) {
-        if (!(l_close.equals("n") && r_close.equals("n") && value == intStart))
-          return true
-      }
-      false
-    }
-
-    def closest_preceding_finger(id: Int): ActorRef = {
-
-      for (i <- m - 1 to 0 by -1)
-        if (isIncluded("n", self.path.name.toInt, id, "n",
-          fingerTable(i).getNodeID()))
-          return fingerTable(i).nodeActor
-      //else just return self
-      self
-    }
-
+    
     def init_finger_table(): Unit = {
 
       // set finger[1].node = successor
