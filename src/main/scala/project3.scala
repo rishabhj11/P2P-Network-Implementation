@@ -65,6 +65,14 @@ object project3 {
     //      ar ! Print
     //    }
 
+    // This would kill(shut down) a node, the system will hold and will implement fault tolerance
+    Thread.sleep(1000)
+    var ar:ActorRef=ActorMap.last
+    println("Killed "+ ar.path.name.toInt)
+     ar ! kill
+
+
+
     Thread.sleep(1000)
     val numPositions: Int = scala.math.pow(2, m).toInt
     //    println("Number of Positions on Identifier Circle: " + numPositions)
@@ -98,6 +106,9 @@ object project3 {
     }
     system.shutdown()
   }
+
+
+
 
   def log2(x: Int): Int = {
 
