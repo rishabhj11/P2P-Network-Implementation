@@ -135,21 +135,6 @@ object project3 {
       fingerTable(i) = new FingerEntry(start, end, self)
     }
 
-    def isIncluded(l_close: String, intStart: Int, intEnd: Int, r_close: String, value: Int): Boolean = {
-
-      if (intStart > intEnd)
-        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart || value < intEnd))
-          return true
-      if (intStart < intEnd)
-        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart && value < intEnd))
-          return true
-      if (intStart == intEnd) {
-        if (!(l_close.equals("n") && r_close.equals("n") && value == intStart))
-          return true
-      }
-      false
-    }
-
     def closest_preceding_finger(id: Int): ActorRef = {
 
       for (i <- m - 1 to 0 by -1)
@@ -271,6 +256,21 @@ object project3 {
           }
         }
       }
+    }
+
+    def isIncluded(l_close: String, intStart: Int, intEnd: Int, r_close: String, value: Int): Boolean = {
+
+      if (intStart > intEnd)
+        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart || value < intEnd))
+          return true
+      if (intStart < intEnd)
+        if (value == intStart && l_close.equals("y") || value == intEnd && r_close.equals("y") || (value > intStart && value < intEnd))
+          return true
+      if (intStart == intEnd) {
+        if (!(l_close.equals("n") && r_close.equals("n") && value == intStart))
+          return true
+      }
+      false
     }
 
     def update_others(): Unit = {
