@@ -11,9 +11,6 @@ class FingerEntry(start: Int, end: Int, var nodeActor: ActorRef) {
 
   def getHash(): Int = nodeActor.path.name.toInt
 
-  def setNode(newNode: ActorRef): Unit = this.nodeActor = newNode
-
-  def print: String = "Start: %s, End: %s, Node: %s".format(start, end,
-    getHash())
+  def setNode(n: ActorRef): Unit = this.nodeActor = n
 
 }

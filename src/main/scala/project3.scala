@@ -63,7 +63,7 @@ object project3 {
 
     Thread.sleep(1000)
     val numPositions: Int = scala.math.pow(2, m).toInt
-    println("Number of Positions on Identifier Circle: " + numPositions)
+//    println("Number of Positions on Identifier Circle: " + numPositions)
     println("Number of Nodes: " + numNodes)
     println("Number of Requests: " + numRequests)
     var k: Int = 0
@@ -72,7 +72,7 @@ object project3 {
       k = Random.nextInt(numPositions)
       for (ar <- ActorMap) {
         ar ! SearchKey(ar, k.toString, 0)
-        Thread.sleep(100)
+        Thread.sleep(10)
       }
     }
 
@@ -92,9 +92,7 @@ object project3 {
           println("found none")
       }
     }
-
     system.shutdown()
-
   }
 
   def log2(x: Int): Int = {
@@ -157,14 +155,10 @@ object project3 {
         }
 
       case Join(nDash: ActorRef) =>
-//        var t=context.actorSelection("akka://Chord/user/0")
-//        println(t)
         this.nDash = nDash
         nDash ! Find_Predecessor(self, self.path.name.toInt)
 
       case Join_Continue(predecessor: ActorRef, successor: ActorRef) =>
-        //        this.predecessor = predecessor
-        //        this.successor = successor
         predecessor ! Set_Successor(self) // let n' set its successor
         successor ! Set_Predecessor(self) // let n' set its predecessor
         // join has been done, update the initial finger tables
@@ -192,18 +186,18 @@ object project3 {
       case Set_FNode(i: Int, successor: ActorRef) =>
         this.fingerTable(i).setNode(successor)
 
-      case update_finger_table(pvalue: Int, i: Int, nodeActor: ActorRef, nodeID: Int) =>
+      case Update_Finger_Table(pvalue: Int, i: Int, nodeActor: ActorRef, nodeID: Int) =>
         if (nodeActor != self) {
           if (isIncluded("n", self.path.name.toInt, fingerTable(0).getHash()
             , "y", pvalue)) {
             if (isIncluded("n", self.path.name.toInt, fingerTable(i).getHash
             (), "y", nodeID)) {
               fingerTable(i).setNode(nodeActor)
-              predecessor ! update_finger_table(self.path.name.toInt, i, nodeActor, nodeID)
+              predecessor ! Update_Finger_Table(self.path.name.toInt, i, nodeActor, nodeID)
             }
           } else {
             val nextFinger = closest_preceding_finger(pvalue)
-            nextFinger ! update_finger_table(pvalue, i, nodeActor, nodeID)
+            nextFinger ! Update_Finger_Table(pvalue, i, nodeActor, nodeID)
           }
         }
 
@@ -226,26 +220,10 @@ object project3 {
               x(1) += hops
               hopMap.put(code, x)
           }
-
-//          println("I am nodeActor: " + nodeActor.path.name + "; Found key: " + code + " at" +
-//            " " + "nodeActor " + successor.path.name + " in" + " " + "" + hops + " hops")
         } else {
           val nextFinger = closest_preceding_finger(code.toInt)
           nextFinger ! SearchKey(nodeActor, code, hops + 1)
         }
-
-      case Print => {
-        println("============================================")
-        println("Node Identifier (SHA1): %s".format(self.path.name.toInt))
-        println("Predecessor: %s".format(predecessor.path.name))
-        println("Successor: %s".format(successor.path.name))
-        println("Finger Table: ")
-        for (i <- 0 until m) {
-          println("   %d : ".format(i) + fingerTable(i).print)
-        }
-        println("============================================")
-      }
-
     }
 
     def isIncluded(l_close: String, intStart: Int, intEnd: Int, r_close: String, value: Int): Boolean = {
@@ -302,7 +280,7 @@ object project3 {
       for (i <- 0 to m - 1) {
         val p = (self.path.name.toInt - scala.math.pow(2, i).toInt +
           scala.math.pow(2, m).toInt + 1) % scala.math.pow(2, m).toInt
-        successor ! update_finger_table(p, i, self, self.path.name.toInt)
+        successor ! Update_Finger_Table(p, i, self, self.path.name.toInt)
       }
     }
 
@@ -324,7 +302,7 @@ object project3 {
 
   case class Set_FNode(i: Int, successor: ActorRef)
 
-  case class update_finger_table(pvalue: Int, i: Int, nodeActor: ActorRef, nodeID: Int)
+  case class Update_Finger_Table(pvalue: Int, i: Int, nodeActor: ActorRef, nodeID: Int)
 
   case class SearchKey(nodeActor: ActorRef, code: String, hops: Int)
 
