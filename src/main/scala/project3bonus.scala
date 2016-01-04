@@ -15,7 +15,7 @@ import scala.util.Random
 /**
  * Created by PRITI on 10/17/15 at 2:50 PM.
  */
-object project3 {
+object project3bonus {
 
   val hopMap: concurrent.Map[String, Array[Int]] = new
       ConcurrentHashMap[String, Array[Int]]().asScala
@@ -69,7 +69,7 @@ object project3 {
     Thread.sleep(1000)
     var ar:ActorRef=ActorMap.last
     println("Killed "+ ar.path.name.toInt)
-     ar ! kill
+     ar ! kill()
 
 
 
@@ -304,6 +304,8 @@ object project3 {
           nextFinger ! SearchKey(nodeActor, code, hops + 1)
         }
 
+      case kill() => {context.system.shutdown()}
+
 
       case iamalive() => {sender ! "yes"}
 
@@ -457,6 +459,8 @@ object project3 {
   case class successor_fixFinger(node: ActorRef, id: Int)
 
   case class fix_fingers_continues(successor: ActorRef,id: Int)
+
+  case class kill()
 
   case class iamalive()
 
